@@ -45,7 +45,6 @@ var tabs = 0;
 var code = "";
 var visitedNodes = [];
 
-
 export default {
   name: "drawflow",
   data: () => ({
@@ -82,12 +81,12 @@ export default {
       console.log(this.handle(node));
     },
     handle: function (node) {
-        console.log( "handling ", node.name);
-        if(visitedNodes[node.id] == true){
-            console.log("already visited this one");
-            return;
-        }
-        visitedNodes[node.id] = true;
+      console.log("handling ", node.name);
+      if (visitedNodes[node.id] == true) {
+        console.log("already visited this one");
+        return;
+      }
+      visitedNodes[node.id] = true;
       const inputs = this.getConnections(node);
       if (node.name == "End") {
         console.log(this.handle(editor.value.getNodeFromId(inputs[0])));
@@ -107,11 +106,13 @@ export default {
       } else if (node.name == "Number") {
         return data[node.id].value;
       } else if (node.name == "UseVariable") {
+          this.handle(editor.value.getNodeFromId(inputs[0]));
+
         return data[data.length - 1].variable;
       } else if (node.name == "EndIf") {
         this.handle(editor.value.getNodeFromId(inputs[0]));
         var ans = "";
-        for (var i = 0; i < tabs-1; i++) {
+        for (var i = 0; i < tabs - 1; i++) {
           ans += "    ";
         }
 
@@ -139,7 +140,7 @@ export default {
         }
         const leftNode = editor.value.getNodeFromId(inputs[0]);
         const expression = this.handle(leftNode);
-        ans += data[node.id].variable + " = " + expression;
+        ans += data[node.id].variable + " = " + expression + "\n";
         code += ans;
       } else if (node.name == "Print") {
         this.handle(editor.value.getNodeFromId(inputs[0]));
@@ -150,9 +151,10 @@ export default {
         ans += "println(" + data[node.id].message + ")\n";
         code += ans;
       }
+      
     },
     generateCode: function () {
-    code = "";
+      code = "";
       console.log("generating");
       visitedNodes = [data.length];
       for (var i in visitedNodes) {
@@ -284,8 +286,12 @@ export default {
       editor.value.registerNode("AssignNode", AssignNode, props, options);
       editor.value.registerNode("PrintNode", PrintNode, props, options);
       editor.value.registerNode("EndIfNode", EndIfNode, props, options);
-      editor.value.registerNode("UseVariableNode", UseVariableNode, props, options);
-
+      editor.value.registerNode(
+        "UseVariableNode",
+        UseVariableNode,
+        props,
+        options
+      );
 
       editor.value.registerNode(
         "AssignVariableNode",
