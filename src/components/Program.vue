@@ -1,10 +1,16 @@
 <template>
   <div>
+    <div class="d-flex justify-space-between mb-6">
+      <h1>Untitled program</h1>
+      <v-btn elevation="2" color="primary" v-on:click="exportProgram()">Save program</v-btn>
+    </div>
     <div class="d-flex flex-row">
       <div id="option-pane" class="d-flex flex-column mb-6">
         <h1>Nodes</h1>
         <div class="drag-drawflow" v-on:click="select('if')">If</div>
         <div class="drag-drawflow" v-on:click="select('end_if')">End If</div>
+        <div class="drag-drawflow" v-on:click="select('while')">While loop</div>
+        <div class="drag-drawflow" v-on:click="select('end_while')">End while loop</div>
         <div class="drag-drawflow" v-on:click="select('number')">Number</div>
         <div class="drag-drawflow" v-on:click="select('operation')">
           Arithmetic operation
@@ -30,7 +36,6 @@ import Drawflow from "drawflow";
 import styleDrawflow from "drawflow/dist/drawflow.min.css";
 import { onMounted, shallowRef } from "vue";
 import IfNode from "./nodes/IfNode.vue";
-import StartNode from "./nodes/StartNode.vue";
 import EndNode from "./nodes/EndNode.vue";
 import AssignNode from "./nodes/AssignNode.vue";
 import NumberNode from "./nodes/NumberNode.vue";
@@ -38,6 +43,9 @@ import OperationNode from "./nodes/OperationNode.vue";
 import PrintNode from "./nodes/PrintNode.vue";
 import EndIfNode from "./nodes/EndIfNode.vue";
 import UseVariableNode from "./nodes/UseVariableNode.vue";
+import WhileNode from './nodes/WhileNode.vue';
+import EndWhileNode from './nodes/EndWhileNode.vue';
+
 
 const editor = shallowRef({});
 const data = [{}, {}];
@@ -49,6 +57,7 @@ export default {
   name: "drawflow",
   data: () => ({
     textAreaCode: "asdafsd",
+    exported: "",
   }),
   methods: {
     getConnections: function (node) {
@@ -61,25 +70,9 @@ export default {
       }
       return connections;
     },
-    dfs: function (nodeId, visited) {
-      if (visited[nodeId] == true) {
-        return;
-      }
-      visited[nodeId] = true;
-      const node = editor.value.getNodeFromId(nodeId);
-      console.log(node);
-      const connections = this.getConnections(node);
 
-      console.log(connections);
-
-      for (var i = 0; i < connections.length; i++) {
-        console.log(connections);
-
-        console.log(connections[i]);
-        this.dfs(connections[i], visited);
-      }
-      console.log(this.handle(node));
-    },
+    // depth first search to generate code using the nodes
+    // every node has to be handled differently, recursivelly calling all its connections
     handle: function (node) {
       console.log("handling ", node.name);
       if (visitedNodes[node.id] == true) {
@@ -106,9 +99,10 @@ export default {
       } else if (node.name == "Number") {
         return data[node.id].value;
       } else if (node.name == "UseVariable") {
-          this.handle(editor.value.getNodeFromId(inputs[0]));
-
-        return data[data.length - 1].variable;
+        this.handle(editor.value.getNodeFromId(inputs[0]));
+        const ans = data[data.length - 1].variable;
+        console.log(ans);
+        return ans;
       } else if (node.name == "EndIf") {
         this.handle(editor.value.getNodeFromId(inputs[0]));
         var ans = "";
@@ -151,7 +145,26 @@ export default {
         ans += "println(" + data[node.id].message + ")\n";
         code += ans;
       }
-      
+      else if (node.name == "While"){
+        const a = this.handle(editor.value.getNodeFromId(inputs[0]));
+        const b = this.handle(editor.value.getNodeFromId(inputs[1]));
+
+        var ans = "";
+        for (var i = 0; i < tabs; i++) {
+          ans += "    ";
+        }
+
+        ans += "while " + a + data[node.id].operation + b + ":\n";
+        tabs += 1;
+        code += ans;
+      }
+      else if(node.name == "EndWhile"){
+          this.handle(editor.value.getNodeFromId(inputs[0]));
+          tabs-=1;
+      }
+    },
+    exportProgram: function(){
+        console.log(JSON.stringify(editor.value.export()));
     },
     generateCode: function () {
       code = "";
@@ -261,15 +274,47 @@ export default {
           "vue"
         );
       }
+      else if (nodeType == "while") {
+        data.push({ operation: "<" });
+        editor.value.addNode(
+          "While",
+          2,
+          1,
+          250,
+          300,
+          "Class",
+          data[data.length-1],
+          "WhileNode",
+          "vue"
+        );
+      }
+      else if (nodeType == "end_while") {
+        data.push({});
+        editor.value.addNode(
+          "EndWhile",
+          1,
+          1,
+          250,
+          300,
+          "Class",
+          {},
+          "EndWhileNode",
+          "vue"
+        );
+      }
 
       console.log(editor.value.getNodeFromId(1));
       console.log(data);
     },
   },
   setup() {
-    const code = "";
 
     onMounted(() => {
+
+        // to transform from escaped string to json
+        ///console.log(JSON.parse(JSON.stringify(example)));
+
+
       const id = document.getElementById("drawflow");
       editor.value = new Drawflow(id, Vue);
       editor.value.start();
@@ -278,7 +323,6 @@ export default {
       const options = {};
 
       // Register nodes
-      editor.value.registerNode("StartNode", StartNode, props, options);
       editor.value.registerNode("EndNode", EndNode, props, options);
       editor.value.registerNode("IfNode", IfNode, props, options);
       editor.value.registerNode("OperationNode", OperationNode, props, options);
@@ -286,6 +330,10 @@ export default {
       editor.value.registerNode("AssignNode", AssignNode, props, options);
       editor.value.registerNode("PrintNode", PrintNode, props, options);
       editor.value.registerNode("EndIfNode", EndIfNode, props, options);
+      editor.value.registerNode("WhileNode", WhileNode, props, options);
+      editor.value.registerNode("EndWhileNode", EndWhileNode, props, options);
+
+
       editor.value.registerNode(
         "UseVariableNode",
         UseVariableNode,
@@ -300,18 +348,6 @@ export default {
         options
       );
 
-      // add initial nodes
-      /*editor.value.addNode(
-        "Start",
-        0,
-        1,
-        150,
-        300,
-        "Class",
-        {},
-        "StartNode",
-        "vue"
-      );*/
       editor.value.addNode(
         "End",
         1,
@@ -329,6 +365,8 @@ export default {
           "Connection createden " + info.output_id + "and " + info.input_id
         );
       });
+
+      console.log(editor.value.getNodeFromId(1));
     });
   },
 };
